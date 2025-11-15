@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
-import { FlatList, StyleSheet, View, Text } from 'react-native';
-import { ThemedView } from '@/components/themed-view';
 import { ThemedText } from '@/components/themed-text';
+import { ThemedView } from '@/components/themed-view';
 import db from '@/db';
+import { useEffect, useState, useCallback } from 'react';
+import { FlatList, StyleSheet, Text, View, TouchableOpacity } from 'react-native';
+import { Link, useFocusEffect } from 'expo-router';
 
 // Định nghĩa type cho Book
 type Book = {
@@ -33,6 +34,13 @@ export default function HomeScreen() {
   useEffect(() => {
     loadBooks();
   }, []);
+
+  // Reload khi quay lại từ modal
+  useFocusEffect(
+    useCallback(() => {
+      loadBooks();
+    }, [])
+  );
 
   // Hiển thị trạng thái theo status
   const getStatusLabel = (status: string) => {
@@ -95,12 +103,22 @@ export default function HomeScreen() {
   return (
     <ThemedView style={styles.container}>
       <ThemedView style={styles.header}>
-        <ThemedText type="title">Reading List</ThemedText>
-        <ThemedText style={styles.count}>
-          {books.length} cuốn sách
-        </ThemedText>
+        <ThemedView style={styles.headerContent}>
+          <ThemedView>
+            <ThemedText type="title">Reading List</ThemedText>
+            <ThemedText style={styles.count}>
+              {books.length} cuốn sách
+            </ThemedText>
+          </ThemedView>
+          
+          <Link href="/modal" asChild>
+            <TouchableOpacity style={styles.addButton}>
+              <Text style={styles.addButtonText}>+</Text>
+            </TouchableOpacity>
+          </Link>
+        </ThemedView>
       </ThemedView>
-      
+
       <FlatList
         data={books}
         renderItem={renderBookItem}
@@ -120,11 +138,35 @@ const styles = StyleSheet.create({
   header: {
     padding: 20,
     paddingTop: 60,
-    gap: 8,
+  },
+  headerContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   count: {
     fontSize: 14,
     opacity: 0.7,
+    marginTop: 4,
+  },
+  addButton: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#007AFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  addButtonText: {
+    color: '#fff',
+    fontSize: 32,
+    fontWeight: '300',
+    marginTop: -2,
   },
   listContainer: {
     padding: 16,
