@@ -1,0 +1,38 @@
+# EAS Preview Build Link
+
+## Reading List App - Preview Build
+
+### Android APK
+Link: [Đang chờ build - Run: eas build --profile preview --platform android]
+
+### iOS Simulator
+Link: [Đang chờ build - Run: eas build --profile preview --platform ios]
+
+### Cách build:
+1. Chạy lệnh: `eas build --profile preview --platform android` (hoặc ios)
+2. Đợi build hoàn tất (5-15 phút)
+3. Copy link từ terminal hoặc https://expo.dev
+4. Cập nhật link vào file này
+
+### Thông tin build:
+- Build Date: [Chưa build]
+- Build ID: [Chưa có]
+- Platform: Android/iOS
+- Profile: preview
+- Distribution: internal
+
+### Hướng dẫn cài đặt:
+**Android:**
+1. Tải file APK từ link trên
+2. Bật "Install from Unknown Sources" trên thiết bị
+3. Cài đặt APK
+
+**iOS:**
+1. Tải file từ link trên
+2. Sử dụng TestFlight hoặc internal distribution profile
+3. Cài đặt app theo hướng dẫn
+
+### Lưu ý:
+- File này sẽ được cập nhật sau khi build EAS hoàn tất
+- Link preview có thời hạn sử dụng
+- Có thể xem tất cả builds tại: https://expo.dev

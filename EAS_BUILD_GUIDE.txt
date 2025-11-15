@@ -1,0 +1,76 @@
+# EAS Build Preview - Reading List App
+
+## Hướng dẫn build EAS Preview
+
+### Bước 1: Cài đặt EAS CLI (nếu chưa có)
+```
+npm install -g eas-cli
+```
+
+### Bước 2: Đăng nhập Expo
+```
+eas login
+```
+
+### Bước 3: Cấu hình project
+```
+eas build:configure
+```
+
+### Bước 4: Build preview
+Để build preview cho Android:
+```
+eas build --profile preview --platform android
+```
+
+Để build preview cho iOS:
+```
+eas build --profile preview --platform ios
+```
+
+Để build cho cả hai platform:
+```
+eas build --profile preview --platform all
+```
+
+### Bước 5: Lấy link preview
+Sau khi build hoàn tất, EAS sẽ trả về link để tải xuống file build.
+Link có dạng:
+- Android: https://expo.dev/accounts/[username]/projects/ktrathuongki/builds/[build-id]
+- iOS: https://expo.dev/accounts/[username]/projects/ktrathuongki/builds/[build-id]
+
+Link preview sẽ được cập nhật vào file `eas-preview-link.txt` sau khi build xong.
+
+### Lưu ý:
+- Cần có tài khoản Expo để build
+- Build preview Android tạo file APK có thể cài đặt trực tiếp
+- Build preview iOS tạo simulator build hoặc internal distribution
+- Thời gian build thường mất 5-15 phút tùy thuộc vào queue
+
+### Kiểm tra trạng thái build:
+```
+eas build:list
+```
+
+### Xem log build:
+```
+eas build:view [build-id]
+```
+
+## Cấu hình đã tạo
+File `eas.json` đã được tạo với các profile:
+- **development**: Cho development client
+- **preview**: Cho internal testing (APK cho Android, simulator cho iOS)
+- **production**: Cho production build
+
+## App Information
+- **Name**: Reading List (KtraThuongKi)
+- **Platform**: iOS, Android
+- **Framework**: Expo (React Native)
+- **Database**: SQLite (expo-sqlite)
+- **Features**: 
+  - CRUD operations for books
+  - Status management (planning/reading/done)
+  - Real-time search and filter
+  - Import from API
+  - Offline storage with SQLite
