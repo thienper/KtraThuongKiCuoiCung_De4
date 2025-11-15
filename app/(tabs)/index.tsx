@@ -2,8 +2,8 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import db from '@/db';
 import { Link, router, useFocusEffect } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
-import { FlatList, StyleSheet, Text, TouchableOpacity, View, Alert } from 'react-native';
+import { useCallback, useEffect, useState, useMemo } from 'react';
+import { Alert, FlatList, StyleSheet, Text, TouchableOpacity, View, TextInput } from 'react-native';
 
 // Định nghĩa type cho Book
 type Book = {
@@ -17,6 +17,8 @@ type Book = {
 export default function HomeScreen() {
   const [books, setBooks] = useState<Book[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterStatus, setFilterStatus] = useState<string | null>(null); // null = all, 'planning', 'reading', 'done'
 
   // Load danh sách sách từ database
   const loadBooks = async () => {
@@ -41,6 +43,27 @@ export default function HomeScreen() {
       loadBooks();
     }, [])
   );
+
+  // Filter và search real-time với useMemo
+  const filteredBooks = useMemo(() => {
+    let result = books;
+
+    // Filter theo status
+    if (filterStatus !== null) {
+      result = result.filter(book => book.status === filterStatus);
+    }
+
+    // Search theo title
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim();
+      result = result.filter(book =>
+        book.title.toLowerCase().includes(query) ||
+        (book.author && book.author.toLowerCase().includes(query))
+      );
+    }
+
+    return result;
+  }, [books, searchQuery, filterStatus]);
 
   // Hiển thị trạng thái theo status
   const getStatusLabel = (status: string) => {
@@ -123,7 +146,7 @@ export default function HomeScreen() {
             try {
               // DELETE khỏi SQLite
               await db.runAsync('DELETE FROM books WHERE id = ?', [book.id]);
-              
+
               // Cập nhật danh sách
               setBooks(prevBooks => prevBooks.filter(b => b.id !== book.id));
             } catch (error) {
@@ -159,7 +182,7 @@ export default function HomeScreen() {
           </ThemedText>
         </View>
       </TouchableOpacity>
-      
+
       <TouchableOpacity
         style={styles.deleteButton}
         onPress={() => handleDeleteBook(item)}
@@ -192,7 +215,7 @@ export default function HomeScreen() {
           <ThemedView>
             <ThemedText type="title">Reading List</ThemedText>
             <ThemedText style={styles.count}>
-              {books.length} cuốn sách
+              {filteredBooks.length} / {books.length} cuốn sách
             </ThemedText>
           </ThemedView>
 
@@ -202,15 +225,72 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </Link>
         </ThemedView>
+
+        {/* Search Input */}
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Tìm kiếm sách theo tên hoặc tác giả..."
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          placeholderTextColor="#999"
+        />
+
+        {/* Filter Tabs */}
+        <View style={styles.filterTabs}>
+          <TouchableOpacity
+            style={[styles.filterTab, filterStatus === null && styles.filterTabActive]}
+            onPress={() => setFilterStatus(null)}
+          >
+            <Text style={[styles.filterTabText, filterStatus === null && styles.filterTabTextActive]}>
+              Tất cả
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.filterTab, filterStatus === 'planning' && styles.filterTabActive]}
+            onPress={() => setFilterStatus('planning')}
+          >
+            <Text style={[styles.filterTabText, filterStatus === 'planning' && styles.filterTabTextActive]}>
+              📋 Cần đọc
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.filterTab, filterStatus === 'reading' && styles.filterTabActive]}
+            onPress={() => setFilterStatus('reading')}
+          >
+            <Text style={[styles.filterTabText, filterStatus === 'reading' && styles.filterTabTextActive]}>
+              📖 Đang đọc
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.filterTab, filterStatus === 'done' && styles.filterTabActive]}
+            onPress={() => setFilterStatus('done')}
+          >
+            <Text style={[styles.filterTabText, filterStatus === 'done' && styles.filterTabTextActive]}>
+              ✅ Đã đọc
+            </Text>
+          </TouchableOpacity>
+        </View>
       </ThemedView>
 
       <FlatList
-        data={books}
+        data={filteredBooks}
         renderItem={renderBookItem}
         keyExtractor={(item) => item.id.toString()}
         contentContainerStyle={styles.listContainer}
         refreshing={loading}
         onRefresh={loadBooks}
+        ListEmptyComponent={
+          <ThemedView style={styles.emptyListContainer}>
+            <ThemedText style={styles.emptyListText}>
+              {searchQuery || filterStatus
+                ? 'Không tìm thấy sách phù hợp'
+                : 'Chưa có sách trong danh sách'}
+            </ThemedText>
+          </ThemedView>
+        }
       />
     </ThemedView>
   );
@@ -233,6 +313,42 @@ const styles = StyleSheet.create({
     fontSize: 14,
     opacity: 0.7,
     marginTop: 4,
+  },
+  searchInput: {
+    backgroundColor: '#f5f5f5',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  filterTabs: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 12,
+  },
+  filterTab: {
+    flex: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    borderRadius: 8,
+    backgroundColor: '#f5f5f5',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  filterTabActive: {
+    backgroundColor: '#E3F2FD',
+    borderColor: '#007AFF',
+  },
+  filterTabText: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  filterTabTextActive: {
+    color: '#007AFF',
+    fontWeight: '600',
   },
   addButton: {
     width: 50,
@@ -337,6 +453,15 @@ const styles = StyleSheet.create({
   },
   emptySubtitle: {
     fontSize: 14,
+    opacity: 0.7,
+    textAlign: 'center',
+  },
+  emptyListContainer: {
+    padding: 40,
+    alignItems: 'center',
+  },
+  emptyListText: {
+    fontSize: 16,
     opacity: 0.7,
     textAlign: 'center',
   },
