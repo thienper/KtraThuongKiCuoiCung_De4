@@ -1,9 +1,9 @@
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import db from '@/db';
-import { useEffect, useState, useCallback } from 'react';
-import { FlatList, StyleSheet, Text, View, TouchableOpacity } from 'react-native';
 import { Link, useFocusEffect } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
+import { FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 // Định nghĩa type cho Book
 type Book = {
@@ -70,9 +70,49 @@ export default function HomeScreen() {
     }
   };
 
+  // Chu kỳ thay đổi trạng thái: planning → reading → done → planning
+  const cycleStatus = (currentStatus: string): string => {
+    switch (currentStatus) {
+      case 'planning':
+        return 'reading';
+      case 'reading':
+        return 'done';
+      case 'done':
+        return 'planning';
+      default:
+        return 'planning';
+    }
+  };
+
+  // Thay đổi trạng thái sách
+  const handleChangeStatus = async (book: Book) => {
+    try {
+      const newStatus = cycleStatus(book.status);
+      
+      // UPDATE trong SQLite
+      await db.runAsync(
+        'UPDATE books SET status = ? WHERE id = ?',
+        [newStatus, book.id]
+      );
+
+      // Cập nhật UI ngay lập tức
+      setBooks(prevBooks =>
+        prevBooks.map(b =>
+          b.id === book.id ? { ...b, status: newStatus } : b
+        )
+      );
+    } catch (error) {
+      console.error('Error updating book status:', error);
+    }
+  };
+
   // Render từng item trong danh sách
   const renderBookItem = ({ item }: { item: Book }) => (
-    <View style={styles.bookItem}>
+    <TouchableOpacity 
+      style={styles.bookItem}
+      onPress={() => handleChangeStatus(item)}
+      activeOpacity={0.7}
+    >
       <View style={styles.bookContent}>
         <ThemedText style={styles.bookTitle}>{item.title}</ThemedText>
         {item.author && (
@@ -81,8 +121,9 @@ export default function HomeScreen() {
         <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
           <Text style={styles.statusText}>{getStatusLabel(item.status)}</Text>
         </View>
+        <ThemedText style={styles.tapHint}>Chạm để thay đổi trạng thái</ThemedText>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 
   // Empty state
@@ -110,7 +151,7 @@ export default function HomeScreen() {
               {books.length} cuốn sách
             </ThemedText>
           </ThemedView>
-          
+
           <Link href="/modal" asChild>
             <TouchableOpacity style={styles.addButton}>
               <Text style={styles.addButtonText}>+</Text>
@@ -205,6 +246,12 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 12,
     fontWeight: '600',
+  },
+  tapHint: {
+    fontSize: 12,
+    opacity: 0.5,
+    fontStyle: 'italic',
+    marginTop: 4,
   },
   emptyContainer: {
     flex: 1,
