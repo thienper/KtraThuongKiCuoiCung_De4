@@ -36,8 +36,8 @@ eas build --profile preview --platform all
 ### Bước 5: Lấy link preview
 Sau khi build hoàn tất, EAS sẽ trả về link để tải xuống file build.
 Link có dạng:
-- Android: https://expo.dev/accounts/[username]/projects/ktrathuongki/builds/[build-id]
-- iOS: https://expo.dev/accounts/[username]/projects/ktrathuongki/builds/[build-id]
+- Android: https://expo.dev/accounts/thienper/projects/KtraThuongKi/builds/290c31bd-0ddf-424a-bbf8-4437a5bfe99d
+- iOS: https://expo.dev/accounts/thienper/projects/KtraThuongKi/builds/290c31bd-0ddf-424a-bbf8-4437a5bfe99d
 
 Link preview sẽ được cập nhật vào file `eas-preview-link.txt` sau khi build xong.
 

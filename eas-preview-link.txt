@@ -15,8 +15,8 @@ Link: [Đang chờ build - Run: eas build --profile preview --platform ios]
 4. Cập nhật link vào file này
 
 ### Thông tin build:
-- Build Date: [Chưa build]
-- Build ID: [Chưa có]
+- Build Date: 15/11/2025
+- Build ID: 290c31bd-0ddf-424a-bbf8-4437a5bfe99d
 - Platform: Android/iOS
 - Profile: preview
 - Distribution: internal
