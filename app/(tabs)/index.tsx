@@ -1,98 +1,188 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
-
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
+import { useEffect, useState } from 'react';
+import { FlatList, StyleSheet, View, Text } from 'react-native';
 import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
+import { ThemedText } from '@/components/themed-text';
+import db from '@/db';
+
+// Định nghĩa type cho Book
+type Book = {
+  id: number;
+  title: string;
+  author: string | null;
+  status: string;
+  created_at: number;
+};
 
 export default function HomeScreen() {
-  return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
+  const [books, setBooks] = useState<Book[]>([]);
+  const [loading, setLoading] = useState(true);
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
+  // Load danh sách sách từ database
+  const loadBooks = async () => {
+    try {
+      setLoading(true);
+      const result = await db.getAllAsync<Book>('SELECT * FROM books ORDER BY created_at DESC');
+      setBooks(result);
+    } catch (error) {
+      console.error('Error loading books:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadBooks();
+  }, []);
+
+  // Hiển thị trạng thái theo status
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'planning':
+        return '📋 Cần đọc';
+      case 'reading':
+        return '📖 Đang đọc';
+      case 'done':
+        return '✅ Đã đọc';
+      default:
+        return status;
+    }
+  };
+
+  // Màu sắc theo status
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'planning':
+        return '#FFA500';
+      case 'reading':
+        return '#4169E1';
+      case 'done':
+        return '#32CD32';
+      default:
+        return '#666';
+    }
+  };
+
+  // Render từng item trong danh sách
+  const renderBookItem = ({ item }: { item: Book }) => (
+    <View style={styles.bookItem}>
+      <View style={styles.bookContent}>
+        <ThemedText style={styles.bookTitle}>{item.title}</ThemedText>
+        {item.author && (
+          <ThemedText style={styles.bookAuthor}>Tác giả: {item.author}</ThemedText>
+        )}
+        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
+          <Text style={styles.statusText}>{getStatusLabel(item.status)}</Text>
+        </View>
+      </View>
+    </View>
+  );
+
+  // Empty state
+  if (!loading && books.length === 0) {
+    return (
+      <ThemedView style={styles.container}>
+        <ThemedView style={styles.emptyContainer}>
+          <ThemedText style={styles.emptyText}>📚</ThemedText>
+          <ThemedText style={styles.emptyTitle}>Chưa có sách trong danh sách đọc.</ThemedText>
+          <ThemedText style={styles.emptySubtitle}>
+            Hãy thêm cuốn sách đầu tiên của bạn!
+          </ThemedText>
+        </ThemedView>
+      </ThemedView>
+    );
+  }
+
+  return (
+    <ThemedView style={styles.container}>
+      <ThemedView style={styles.header}>
+        <ThemedText type="title">Reading List</ThemedText>
+        <ThemedText style={styles.count}>
+          {books.length} cuốn sách
         </ThemedText>
       </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+      
+      <FlatList
+        data={books}
+        renderItem={renderBookItem}
+        keyExtractor={(item) => item.id.toString()}
+        contentContainerStyle={styles.listContainer}
+        refreshing={loading}
+        onRefresh={loadBooks}
+      />
+    </ThemedView>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
+  container: {
+    flex: 1,
+  },
+  header: {
+    padding: 20,
+    paddingTop: 60,
+    gap: 8,
+  },
+  count: {
+    fontSize: 14,
+    opacity: 0.7,
+  },
+  listContainer: {
+    padding: 16,
+    gap: 12,
+  },
+  bookItem: {
+    backgroundColor: '#f5f5f5',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  bookContent: {
+    gap: 8,
+  },
+  bookTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  bookAuthor: {
+    fontSize: 14,
+    opacity: 0.7,
+  },
+  statusBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    marginTop: 4,
+  },
+  statusText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
-    gap: 8,
+    padding: 40,
   },
-  stepContainer: {
-    gap: 8,
+  emptyText: {
+    fontSize: 64,
+    marginBottom: 16,
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: '600',
     marginBottom: 8,
+    textAlign: 'center',
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+  emptySubtitle: {
+    fontSize: 14,
+    opacity: 0.7,
+    textAlign: 'center',
   },
 });
