@@ -1,9 +1,9 @@
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import db from '@/db';
-import { Link, useFocusEffect, router } from 'expo-router';
+import { Link, router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { FlatList, StyleSheet, Text, TouchableOpacity, View, Alert } from 'react-native';
 
 // Định nghĩa type cho Book
 type Book = {
@@ -106,27 +106,68 @@ export default function HomeScreen() {
     }
   };
 
+  // Xóa sách với xác nhận
+  const handleDeleteBook = (book: Book) => {
+    Alert.alert(
+      'Xác nhận xóa',
+      `Bạn có chắc chắn muốn xóa sách "${book.title}"?`,
+      [
+        {
+          text: 'Hủy',
+          style: 'cancel',
+        },
+        {
+          text: 'Xóa',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              // DELETE khỏi SQLite
+              await db.runAsync('DELETE FROM books WHERE id = ?', [book.id]);
+              
+              // Cập nhật danh sách
+              setBooks(prevBooks => prevBooks.filter(b => b.id !== book.id));
+            } catch (error) {
+              console.error('Error deleting book:', error);
+              Alert.alert('Lỗi', 'Không thể xóa sách. Vui lòng thử lại!');
+            }
+          },
+        },
+      ],
+      { cancelable: true }
+    );
+  };
+
   // Render từng item trong danh sách
   const renderBookItem = ({ item }: { item: Book }) => (
-    <TouchableOpacity
-      style={styles.bookItem}
-      onPress={() => handleChangeStatus(item)}
-      onLongPress={() => router.push(`/modal?id=${item.id}`)}
-      activeOpacity={0.7}
-    >
-      <View style={styles.bookContent}>
-        <ThemedText style={styles.bookTitle}>{item.title}</ThemedText>
-        {item.author && (
-          <ThemedText style={styles.bookAuthor}>Tác giả: {item.author}</ThemedText>
-        )}
-        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
-          <Text style={styles.statusText}>{getStatusLabel(item.status)}</Text>
+    <View style={styles.bookItemContainer}>
+      <TouchableOpacity
+        style={styles.bookItem}
+        onPress={() => handleChangeStatus(item)}
+        onLongPress={() => router.push(`/modal?id=${item.id}`)}
+        activeOpacity={0.7}
+      >
+        <View style={styles.bookContent}>
+          <ThemedText style={styles.bookTitle}>{item.title}</ThemedText>
+          {item.author && (
+            <ThemedText style={styles.bookAuthor}>Tác giả: {item.author}</ThemedText>
+          )}
+          <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
+            <Text style={styles.statusText}>{getStatusLabel(item.status)}</Text>
+          </View>
+          <ThemedText style={styles.tapHint}>
+            Chạm để thay đổi trạng thái • Giữ để sửa
+          </ThemedText>
         </View>
-        <ThemedText style={styles.tapHint}>
-          Chạm để thay đổi trạng thái • Giữ để sửa
-        </ThemedText>
-      </View>
-    </TouchableOpacity>
+      </TouchableOpacity>
+      
+      <TouchableOpacity
+        style={styles.deleteButton}
+        onPress={() => handleDeleteBook(item)}
+        activeOpacity={0.7}
+      >
+        <Text style={styles.deleteButtonText}>🗑️</Text>
+      </TouchableOpacity>
+    </View>
   );
 
   // Empty state
@@ -216,16 +257,38 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 12,
   },
+  bookItemContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
   bookItem: {
+    flex: 1,
     backgroundColor: '#f5f5f5',
     borderRadius: 12,
     padding: 16,
-    marginBottom: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
+  },
+  deleteButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#FF3B30',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  deleteButtonText: {
+    fontSize: 24,
   },
   bookContent: {
     gap: 8,
