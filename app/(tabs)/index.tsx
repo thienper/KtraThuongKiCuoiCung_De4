@@ -1,7 +1,7 @@
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import db from '@/db';
-import { Link, useFocusEffect } from 'expo-router';
+import { Link, useFocusEffect, router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
@@ -88,7 +88,7 @@ export default function HomeScreen() {
   const handleChangeStatus = async (book: Book) => {
     try {
       const newStatus = cycleStatus(book.status);
-      
+
       // UPDATE trong SQLite
       await db.runAsync(
         'UPDATE books SET status = ? WHERE id = ?',
@@ -108,9 +108,10 @@ export default function HomeScreen() {
 
   // Render từng item trong danh sách
   const renderBookItem = ({ item }: { item: Book }) => (
-    <TouchableOpacity 
+    <TouchableOpacity
       style={styles.bookItem}
       onPress={() => handleChangeStatus(item)}
+      onLongPress={() => router.push(`/modal?id=${item.id}`)}
       activeOpacity={0.7}
     >
       <View style={styles.bookContent}>
@@ -121,7 +122,9 @@ export default function HomeScreen() {
         <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
           <Text style={styles.statusText}>{getStatusLabel(item.status)}</Text>
         </View>
-        <ThemedText style={styles.tapHint}>Chạm để thay đổi trạng thái</ThemedText>
+        <ThemedText style={styles.tapHint}>
+          Chạm để thay đổi trạng thái • Giữ để sửa
+        </ThemedText>
       </View>
     </TouchableOpacity>
   );
