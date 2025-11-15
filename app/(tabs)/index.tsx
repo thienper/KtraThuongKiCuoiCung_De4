@@ -1,9 +1,9 @@
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import db from '@/db';
 import { Link, router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useBooks } from '@/hooks/use-books';
 
 // Định nghĩa type cho Book
 type Book = {
@@ -15,34 +15,19 @@ type Book = {
 };
 
 export default function HomeScreen() {
-  const [books, setBooks] = useState<Book[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { books, loading, importing, loadBooks, updateStatus, deleteBook, importFromAPI } = useBooks();
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<string | null>(null); // null = all, 'planning', 'reading', 'done'
-  const [importing, setImporting] = useState(false);
-
-  // Load danh sách sách từ database
-  const loadBooks = async () => {
-    try {
-      setLoading(true);
-      const result = await db.getAllAsync<Book>('SELECT * FROM books ORDER BY created_at DESC');
-      setBooks(result);
-    } catch (error) {
-      console.error('Error loading books:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   useEffect(() => {
     loadBooks();
-  }, []);
+  }, [loadBooks]);
 
   // Reload khi quay lại từ modal
   useFocusEffect(
     useCallback(() => {
       loadBooks();
-    }, [])
+    }, [loadBooks])
   );
 
   // Filter và search real-time với useMemo
@@ -67,7 +52,7 @@ export default function HomeScreen() {
   }, [books, searchQuery, filterStatus]);
 
   // Hiển thị trạng thái theo status
-  const getStatusLabel = (status: string) => {
+  const getStatusLabel = useCallback((status: string) => {
     switch (status) {
       case 'planning':
         return '📋 Cần đọc';
@@ -78,10 +63,10 @@ export default function HomeScreen() {
       default:
         return status;
     }
-  };
+  }, []);
 
   // Màu sắc theo status
-  const getStatusColor = (status: string) => {
+  const getStatusColor = useCallback((status: string) => {
     switch (status) {
       case 'planning':
         return '#FFA500';
@@ -92,10 +77,10 @@ export default function HomeScreen() {
       default:
         return '#666';
     }
-  };
+  }, []);
 
   // Chu kỳ thay đổi trạng thái: planning → reading → done → planning
-  const cycleStatus = (currentStatus: string): string => {
+  const cycleStatus = useCallback((currentStatus: string): string => {
     switch (currentStatus) {
       case 'planning':
         return 'reading';
@@ -106,32 +91,16 @@ export default function HomeScreen() {
       default:
         return 'planning';
     }
-  };
+  }, []);
 
   // Thay đổi trạng thái sách
-  const handleChangeStatus = async (book: Book) => {
-    try {
-      const newStatus = cycleStatus(book.status);
-
-      // UPDATE trong SQLite
-      await db.runAsync(
-        'UPDATE books SET status = ? WHERE id = ?',
-        [newStatus, book.id]
-      );
-
-      // Cập nhật UI ngay lập tức
-      setBooks(prevBooks =>
-        prevBooks.map(b =>
-          b.id === book.id ? { ...b, status: newStatus } : b
-        )
-      );
-    } catch (error) {
-      console.error('Error updating book status:', error);
-    }
-  };
+  const handleChangeStatus = useCallback(async (book: Book) => {
+    const newStatus = cycleStatus(book.status);
+    await updateStatus(book.id, newStatus);
+  }, [cycleStatus, updateStatus]);
 
   // Xóa sách với xác nhận
-  const handleDeleteBook = (book: Book) => {
+  const handleDeleteBook = useCallback((book: Book) => {
     Alert.alert(
       'Xác nhận xóa',
       `Bạn có chắc chắn muốn xóa sách "${book.title}"?`,
@@ -144,14 +113,8 @@ export default function HomeScreen() {
           text: 'Xóa',
           style: 'destructive',
           onPress: async () => {
-            try {
-              // DELETE khỏi SQLite
-              await db.runAsync('DELETE FROM books WHERE id = ?', [book.id]);
-
-              // Cập nhật danh sách
-              setBooks(prevBooks => prevBooks.filter(b => b.id !== book.id));
-            } catch (error) {
-              console.error('Error deleting book:', error);
+            const success = await deleteBook(book.id);
+            if (!success) {
               Alert.alert('Lỗi', 'Không thể xóa sách. Vui lòng thử lại!');
             }
           },
@@ -159,71 +122,15 @@ export default function HomeScreen() {
       ],
       { cancelable: true }
     );
-  };
+  }, [deleteBook]);
 
   // Import sách từ API
-  const handleImportFromAPI = async () => {
-    try {
-      setImporting(true);
-
-      // Gọi API để lấy danh sách sách gợi ý
-      const response = await fetch('https://jsonplaceholder.typicode.com/posts?_limit=5');
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch books');
-      }
-
-      const data = await response.json();
-
-      // Map dữ liệu từ API
-      const suggestedBooks = data.map((item: any) => ({
-        title: item.title,
-        author: `User ${item.userId}`,
-        status: 'planning',
-        created_at: Date.now(),
-      }));
-
-      let addedCount = 0;
-      let skippedCount = 0;
-
-      // Kiểm tra và thêm sách, bỏ qua nếu title trùng
-      for (const book of suggestedBooks) {
-        // Kiểm tra title đã tồn tại chưa
-        const existing = await db.getAllAsync<Book>(
-          'SELECT * FROM books WHERE LOWER(title) = LOWER(?)',
-          [book.title]
-        );
-
-        if (existing.length === 0) {
-          // Thêm sách mới
-          await db.runAsync(
-            'INSERT INTO books (title, author, status, created_at) VALUES (?, ?, ?, ?)',
-            [book.title, book.author, book.status, book.created_at]
-          );
-          addedCount++;
-        } else {
-          skippedCount++;
-        }
-      }
-
-      // Reload danh sách
-      await loadBooks();
-
-      // Thông báo kết quả
-      Alert.alert(
-        'Import hoàn tất',
-        `Đã thêm ${addedCount} sách mới.\n${skippedCount > 0 ? `Bỏ qua ${skippedCount} sách trùng lặp.` : ''}`
-      );
-    } catch (error) {
-      console.error('Error importing books:', error);
-      Alert.alert('Lỗi', 'Không thể import sách từ API. Vui lòng thử lại!');
-    } finally {
-      setImporting(false);
-    }
-  };
+  const handleImportFromAPI = useCallback(async () => {
+    await importFromAPI();
+  }, [importFromAPI]);
 
   // Render từng item trong danh sách
-  const renderBookItem = ({ item }: { item: Book }) => (
+  const renderBookItem = useCallback(({ item }: { item: Book }) => (
     <View style={styles.bookItemContainer}>
       <TouchableOpacity
         style={styles.bookItem}
@@ -253,7 +160,7 @@ export default function HomeScreen() {
         <Text style={styles.deleteButtonText}>🗑️</Text>
       </TouchableOpacity>
     </View>
-  );
+  ), [handleChangeStatus, handleDeleteBook, getStatusColor, getStatusLabel]);
 
   // Empty state
   if (!loading && books.length === 0) {
