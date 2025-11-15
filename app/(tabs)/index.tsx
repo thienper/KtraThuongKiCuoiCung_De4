@@ -2,8 +2,8 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import db from '@/db';
 import { Link, router, useFocusEffect } from 'expo-router';
-import { useCallback, useEffect, useState, useMemo } from 'react';
-import { Alert, FlatList, StyleSheet, Text, TouchableOpacity, View, TextInput } from 'react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Alert, FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 // Định nghĩa type cho Book
 type Book = {
@@ -19,6 +19,7 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<string | null>(null); // null = all, 'planning', 'reading', 'done'
+  const [importing, setImporting] = useState(false);
 
   // Load danh sách sách từ database
   const loadBooks = async () => {
@@ -160,6 +161,67 @@ export default function HomeScreen() {
     );
   };
 
+  // Import sách từ API
+  const handleImportFromAPI = async () => {
+    try {
+      setImporting(true);
+
+      // Gọi API để lấy danh sách sách gợi ý
+      const response = await fetch('https://jsonplaceholder.typicode.com/posts?_limit=5');
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch books');
+      }
+
+      const data = await response.json();
+
+      // Map dữ liệu từ API
+      const suggestedBooks = data.map((item: any) => ({
+        title: item.title,
+        author: `User ${item.userId}`,
+        status: 'planning',
+        created_at: Date.now(),
+      }));
+
+      let addedCount = 0;
+      let skippedCount = 0;
+
+      // Kiểm tra và thêm sách, bỏ qua nếu title trùng
+      for (const book of suggestedBooks) {
+        // Kiểm tra title đã tồn tại chưa
+        const existing = await db.getAllAsync<Book>(
+          'SELECT * FROM books WHERE LOWER(title) = LOWER(?)',
+          [book.title]
+        );
+
+        if (existing.length === 0) {
+          // Thêm sách mới
+          await db.runAsync(
+            'INSERT INTO books (title, author, status, created_at) VALUES (?, ?, ?, ?)',
+            [book.title, book.author, book.status, book.created_at]
+          );
+          addedCount++;
+        } else {
+          skippedCount++;
+        }
+      }
+
+      // Reload danh sách
+      await loadBooks();
+
+      // Thông báo kết quả
+      Alert.alert(
+        'Import hoàn tất',
+        `Đã thêm ${addedCount} sách mới.\n${skippedCount > 0 ? `Bỏ qua ${skippedCount} sách trùng lặp.` : ''}`
+      );
+    } catch (error) {
+      console.error('Error importing books:', error);
+      Alert.alert('Lỗi', 'Không thể import sách từ API. Vui lòng thử lại!');
+    } finally {
+      setImporting(false);
+    }
+  };
+
   // Render từng item trong danh sách
   const renderBookItem = ({ item }: { item: Book }) => (
     <View style={styles.bookItemContainer}>
@@ -273,6 +335,17 @@ export default function HomeScreen() {
             </Text>
           </TouchableOpacity>
         </View>
+
+        {/* Import Button */}
+        <TouchableOpacity
+          style={styles.importButton}
+          onPress={handleImportFromAPI}
+          disabled={importing}
+        >
+          <Text style={styles.importButtonText}>
+            {importing ? '⏳ Đang import...' : '📥 Import từ API'}
+          </Text>
+        </TouchableOpacity>
       </ThemedView>
 
       <FlatList
@@ -348,6 +421,23 @@ const styles = StyleSheet.create({
   },
   filterTabTextActive: {
     color: '#007AFF',
+    fontWeight: '600',
+  },
+  importButton: {
+    backgroundColor: '#34C759',
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 12,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  importButtonText: {
+    color: '#fff',
+    fontSize: 14,
     fontWeight: '600',
   },
   addButton: {
